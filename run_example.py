@@ -149,6 +149,7 @@ def neural_network_2fc(prefix, params):
 
 if __name__ == "__main__":
     from keras.backend import tensorflow_backend
+    sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
 
     if TRAIN:
             
