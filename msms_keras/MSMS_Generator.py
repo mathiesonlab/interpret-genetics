@@ -13,12 +13,13 @@ import pickle
 from contextlib import contextmanager
 import msprime
 import random
+import libsequence  
 
 NUMCHANNELS = 2 # Assume to always use both SNP and length matrix
 
 class MSMS_Generator:
     def __init__(self, num_individuals, sequence_length, length_to_extend_to, 
-            pop_min, pop_max, yield_summary_stats=False):
+            pop_min, pop_max, yield_summary_stats=0):
         """
         Params:
             - num_individuals: the number of individuals in the population
@@ -38,7 +39,7 @@ class MSMS_Generator:
 
     def data_generator(self, batch_size):
         
-        if not self.summary_stats: 
+        if self.summary_stats == 0: 
             while True:
                 X = np.empty((batch_size, *self.dim))
                 y = np.empty((batch_size), dtype=int)
@@ -71,6 +72,9 @@ class MSMS_Generator:
                     y[i] = pop_size 
                     
                 yield X, y
+
+        elif self.summary_stats == 1:
+            pass
             
     def centered_padding(self, matrix):
         
@@ -102,3 +106,5 @@ if __name__ == "__main__":
     msms_gen = MSMS_Generator(10, 1000000, 800, 1000, 10000)
     generator = msms_gen.data_generator(8)
     X, y = next(generator)
+    print(X.shape)
+    print(y)
