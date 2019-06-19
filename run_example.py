@@ -2,7 +2,10 @@ from os import sys
 import keras
 from keras.models import Sequential, load_model
 from keras.layers import Dense, Conv1D, Conv2D, Flatten, MaxPooling2D, MaxPooling1D, Dropout, AveragePooling2D, AveragePooling1D
+import keras.backend as K
 from keras import optimizers
+import keras.callbacks
+from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 import numpy as np
 import sys
@@ -10,29 +13,59 @@ import h5py
 import os
 import pandas as pd
 import math
+import json
 
 from sklearn.model_selection import train_test_split
 import pickle
 
-from msms_keras.MSMS_Generator import MSMS_Generator
+from msms_keras.MSMS_Generator import MSMS_Generator, MSprime_Generator
 import utils
 
 import tensorflow as tf
 
 TRAIN = True
+PREFIX = "test"
+SAVE_PERIOD = 2
 
-def neural_network_1fc(prefix, params):
+class MetricHistory(keras.callbacks.Callback):
+    def on_train_begin(self, logs={}):
+        self.metrics = {"rmse": math.inf, "mean_absolute_error": math.inf}
+        self.all_metrics = {"rmse": [], "mean_absolute_error": []}
+
+    def on_epoch_end(self, epoch, logs={}):
+        self.metrics['rmse'] = min(self.metrics['rmse'], logs.get('rmse'))
+        self.metrics['mean_absolute_error'] = min(self.metrics['mean_absolute_error'],
+                                            logs.get('mean_absolute_error'))
+
+        self.all_metrics["rmse"].append(str(logs.get("rmse")))
+        self.all_metrics["mean_absolute_error"].append(str(logs.get("mean_absolute_error")))
+
+        if epoch % SAVE_PERIOD == 0:
+            for key in self.metrics:
+                self.metrics[key] = str(self.metrics[key])
+            with open("models/{}_metrics.json".format(PREFIX), "w") as outfile:
+                json.dump(self.metrics, outfile)
+            for key in self.metrics:
+                self.metrics[key] = float(self.metrics[key])
+
+            with open("models/{}_all_metrics.json".format(PREFIX), "w") as outfile:
+                json.dump(self.all_metrics, outfile)
+
+
+def rmse(y_true, y_pred):
+    return K.sqrt(K.mean(K.square(y_pred - y_true)))
+
+def neural_network_2c(params):
     
     NUMEPOCHS = params.epochs
     BATCHSIZE = params.batchsize
     NUMTRAIN = params.total_sims
-    NUMTEST = NUMTRAIN * .2
     CORES = params.cores
     l2_lambda = params.l2_lambda
     ksize = (params.k_height, params.k_width)
     poolsize = (params.pool_height, params.pool_width)
     
-    msms_gen = MSMS_Generator(params.num_individuals, params.sequence_length, 
+    msms_gen = MSprime_Generator(params.num_individuals, params.sequence_length, 
             params.length_to_pad_to, params.pop_min, params.pop_max)
     dims = msms_gen.dim
 
@@ -58,17 +91,27 @@ def neural_network_1fc(prefix, params):
         kernel_initializer='normal',
         kernel_regularizer=keras.regularizers.l2(l2_lambda)))
     model.add(Dropout(params.dense_1_drop))
-    model.add(Dense(1))
-
+    model.add(Dense(3))
+    
+    early_stop = EarlyStopping(monitor='mean_absolute_error', min_delta=10, patience=2, 
+                                restore_best_weights=True)
+    """
+    check = ModelCheckpoint("models/{}_model.hdf5".format(PREFIX), 
+            monitor='mean_absolute_error', save_best_only=True, 
+            save_weights_only=False, period=1)
+    """
+    metric = MetricHistory()
+    
     model.compile(loss='mean_squared_error',
                       optimizer=keras.optimizers.Adam(),
-                      metrics=['mean_squared_error','mean_absolute_error'])
+                      metrics=[rmse, 'mean_absolute_error'])
 
     print(model.summary())
 
     history = model.fit_generator(msms_gen.data_generator(BATCHSIZE), 
             steps_per_epoch=NUMTRAIN/NUMEPOCHS, epochs=NUMEPOCHS, 
-            workers=CORES, use_multiprocessing=True)
+            workers=CORES, use_multiprocessing=True, 
+            callbacks=[early_stop, metric])
     
     """
     model.save(prefix + '_model.hdf5')
@@ -86,8 +129,11 @@ if __name__ == "__main__":
 
     if TRAIN:
             
-        params = utils.Params("./configurations/example.json")
+        params = utils.Params("./configurations/example2.json")
         
-        neural_network_1fc('cnn_1fc_example', params)
+        neural_network_2c(params)
     
-    
+    else:
+        model = load_model(PREFIX + '_model.hdf5')
+        hist = pickle.load(PREFIX + '_trainhist.keras')
+
