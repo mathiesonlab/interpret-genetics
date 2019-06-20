@@ -13,6 +13,7 @@ import pickle
 from contextlib import contextmanager
 import msprime
 import random
+import math
 
 NUMCHANNELS = 2 # Assume to always use both SNP and length matrix
 
@@ -120,56 +121,101 @@ class MSprime_Generator:
 
     def data_generator(self, batch_size):
         
-        if self.summary_stats == 0: 
-            while True:
-                X = np.empty((batch_size, *self.dim))
-                y = np.empty((batch_size, 3), dtype=int)
+        while True:
+            y = np.empty((batch_size, 3), dtype=int)
+            X = np.empty((batch_size, *self.dim))
+            s = []
+
+            for i in range(batch_size):
+                N1 = np.random.choice(np.linspace(1, 10, 1000))
+                N2 = np.random.choice(np.linspace(1, 5, 500))
+                N3 = np.random.choice(np.linspace(1, 10, 1000))
                 
-                for i in range(batch_size):
-                    N1 = np.random.choice(np.linspace(1, 10, 1000))
-                    N2 = np.random.choice(np.linspace(1, 5, 500))
-                    N3 = np.random.choice(np.linspace(1, 10, 1000))
-                    
-                    demo1 = msprime.PopulationParametersChange(time=0, 
-                            initial_size=N1 * self.pop_min)
-                    demo2 = msprime.PopulationParametersChange(time=1786, 
-                            initial_size=N2 * self.pop_min)
-                    demo3 = msprime.PopulationParametersChange(time=3571, 
-                            initial_size=N3 * self.pop_min)
-                    demos = [demo1, demo2, demo3]
+                demo1 = msprime.PopulationParametersChange(time=0, 
+                        initial_size=N1 * self.pop_min)
+                demo2 = msprime.PopulationParametersChange(time=1786, 
+                        initial_size=N2 * self.pop_min)
+                demo3 = msprime.PopulationParametersChange(time=3571, 
+                        initial_size=N3 * self.pop_min)
+                demos = [demo1, demo2, demo3]
 
-                    tree_sequence = msprime.simulate(sample_size=self.num_individuals, 
-                            length=self.sequence_length,
-                            Ne=10000,
-                            recombination_rate=1e-8, mutation_rate=1e-8,
-                            demographic_events=demos)
+                tree_sequence = msprime.simulate(sample_size=self.num_individuals, 
+                        length=self.sequence_length,
+                        Ne=10000,
+                        recombination_rate=1e-8, mutation_rate=1e-8,
+                        demographic_events=demos)
 
-                    genotype = tree_sequence.genotype_matrix().astype(int)
-                    genotype_padded = self.centered_padding(genotype)
-                    X[i][0] = genotype_padded
+                genotype = tree_sequence.genotype_matrix().astype(int)
+                s.append(genotype.shape[0])
+                genotype_padded = self.centered_padding(genotype)
+                y[i] = np.array([N1*self.pop_min, N2*self.pop_min, N3*self.pop_min])
+                X[i][0] = genotype_padded
 
-                    variant_iter = tree_sequence.variants()
-                    first = next(variant_iter)
-                    prev_pos = first.site.position
-                    pos_distances = [0]
-                    for variant in variant_iter:
-                        pos = variant.site.position
-                        pos_distances.append(int(pos)-int(prev_pos))
-                        prev_pos = pos
-                    
-                    distance_matrix = np.array(pos_distances)
-                    distance_matrix = np.reshape(distance_matrix, (len(pos_distances), 1))
-                    distance_matrix = np.tile(distance_matrix, (1, self.num_individuals))
-                    distance_padded = self.centered_padding(distance_matrix)
-                    X[i][1] = distance_padded
-                    
-                    y[i] = np.array([N1*self.pop_min, N2*self.pop_min, N3*self.pop_min])
-                    
+            if self.summary_stats == 0:
+
+                variant_iter = tree_sequence.variants()
+                first = next(variant_iter)
+                prev_pos = first.site.position
+                pos_distances = [0]
+                for variant in variant_iter:
+                    pos = variant.site.position
+                    pos_distances.append(int(pos)-int(prev_pos))
+                    prev_pos = pos
+                
+                distance_matrix = np.array(pos_distances)
+                distance_matrix = np.reshape(distance_matrix, (len(pos_distances), 1))
+                distance_matrix = np.tile(distance_matrix, (1, self.num_individuals))
+                distance_padded = self.centered_padding(distance_matrix)
+                X[i][1] = distance_padded
+                
                 yield X, y
 
-        elif self.summary_stats == 1:
-            pass
-            
+            elif self.summary_stats == 1:
+
+                X = X[:,0]
+                SFS = []
+
+                for batch in range(batch_size):
+                    lst = [0 for i in range(self.num_individuals)]
+                    for i in range(X.shape[1]):
+                        count = 0
+                        for j in range(X.shape[2]):
+                            if X[batch, i, j] == 1:
+                                count += 1
+                        lst[count] += 1
+
+                    lst.pop(0)
+                    SFS.append(lst)
+                
+                SFS_folded = [0 for i in range(len(SFS))] 
+                for i in range(len(SFS)):
+                    lst = []
+                    for j in range(math.ceil(len(SFS[i])/2)):
+                        if j == len(SFS[i]) - 1 - j:
+                            lst.append(SFS[i][j])
+                        else:
+                            n = SFS[i][j] + SFS[i][len(SFS[i]) - 1 - j]
+                            lst.append(n)
+                    SFS_folded[i] = lst
+
+                pi_lst = []
+                for i in range(len(SFS_folded)):
+                    pi = sum([(SFS_folded[i][j] * j * (self.num_individuals-j)) for j in \
+                            range(len(SFS_folded[j]))]) * 2 / \
+                            (2*self.num_individuals * (2*self.num_individuals - 1))
+                    pi_lst.append(pi)
+                
+                matrix = []
+                for i in range(batch_size):
+                    element = [s[i], pi_lst[i], *SFS_folded[i]]
+                    matrix.append(element)
+                matrix = np.array(matrix)
+
+                yield matrix, y
+                            
+
+                
+
     def centered_padding(self, matrix):
         
         diff = self.length_to_extend_to - matrix.shape[0]
@@ -197,9 +243,8 @@ class MSprime_Generator:
 
    
 if __name__ == "__main__":
-    msms_gen = MSprime_Generator(10, 1000000, 800, 1000, 10000)
+    msms_gen = MSprime_Generator(10, 1000000, 800, 1000, 10000, yield_summary_stats=1)
     generator = msms_gen.data_generator(8)
     X, y = next(generator)
     print(X.shape)
-    print(y.shape)
-    print(y)
+    print(X)
