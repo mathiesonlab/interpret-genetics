@@ -1,0 +1,27 @@
+{
+    "num_individuals": 10,
+    "sequence_length": 1000000,
+    "length_to_pad_to": 800,
+    "total_sims": 100000, 
+    "pop_min": 1000, 
+    "pop_max": 10000, 
+    "k_height": 10,
+    "k_width": 1,
+    "pool_height": 2,
+    "pool_width": 1,
+    "channels": 2,
+    "cores": 8, 
+    "learning_rate": 1e-3,
+    "l2_lambda": 0.001,
+    "epochs": 100, 
+    "batchsize": 32,
+
+    "conv_2D_1_out_dim": 128,
+    "conv_2D_1_drop": 0.4,
+    "conv_2D_2_out_dim": 128,
+    "conv_2D_2_drop": 0.4,
+    "conv_2D_3_out_dim": 128,
+    "conv_2D_3_drop": 0.4,
+    "dense_1_dim": 128,
+    "dense_1_drop": 0.25
+}
