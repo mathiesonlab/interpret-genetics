@@ -1,0 +1,20 @@
+{
+    "num_individuals": 10,
+    "sequence_length": 1000000,
+    "length_to_pad_to": 800,
+    "total_sims": 100000, 
+    "pop_min": 1000, 
+    "pop_max": 10000, 
+    "cores": 8, 
+    "learning_rate": 1e-3,
+    "l2_lambda": 0.001,
+    "epochs": 100, 
+    "batchsize": 32,
+
+    "dense_1_dim": 128,
+    "dense_1_drop": 0.5, 
+    "dense_2_dim": 64,
+    "dense_2_drop": 0.5,
+    "dense_3_dim": 32,
+    "dense_3_drop": 0.5
+}

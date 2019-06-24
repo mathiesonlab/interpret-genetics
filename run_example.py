@@ -24,12 +24,12 @@ import utils
 import tensorflow as tf
 
 TRAIN = True
-PREFIX = "test"
+PREFIX = "models/test"
 SAVE_PERIOD = 2
 
 class MetricHistory(keras.callbacks.Callback):
     def on_train_begin(self, logs={}):
-        self.metrics = {"rmse": math.inf, "mean_absolute_error": math.inf}
+        self.metrics = {"rmse": math.inf, "mean_absolute_error": math.inf} 
         self.all_metrics = {"rmse": [], "mean_absolute_error": []}
 
     def on_epoch_end(self, epoch, logs={}):
@@ -43,12 +43,12 @@ class MetricHistory(keras.callbacks.Callback):
         if epoch % SAVE_PERIOD == 0:
             for key in self.metrics:
                 self.metrics[key] = str(self.metrics[key])
-            with open("models/{}_metrics.json".format(PREFIX), "w") as outfile:
+            with open("{}_metrics.json".format(PREFIX), "w") as outfile:
                 json.dump(self.metrics, outfile)
             for key in self.metrics:
                 self.metrics[key] = float(self.metrics[key])
 
-            with open("models/{}_all_metrics.json".format(PREFIX), "w") as outfile:
+            with open("{}_all_metrics.json".format(PREFIX), "w") as outfile:
                 json.dump(self.all_metrics, outfile)
 
 
@@ -85,6 +85,12 @@ def neural_network_2c(params):
     model.add(MaxPooling2D(pool_size=poolsize, data_format='channels_first'))
     model.add(Dropout(params.conv_2D_2_drop))
 
+    model.add(Conv2D(params.conv_2D_3_out_dim, kernel_size=ksize, 
+        activation='relu',kernel_regularizer=keras.regularizers.l2(l2_lambda), 
+        data_format='channels_first'))
+    model.add(MaxPooling2D(pool_size=poolsize, data_format='channels_first'))
+    model.add(Dropout(params.conv_2D_3_drop))    
+    
     model.add(Flatten())
 
     model.add(Dense(params.dense_1_dim, activation='relu', 
@@ -93,13 +99,13 @@ def neural_network_2c(params):
     model.add(Dropout(params.dense_1_drop))
     model.add(Dense(3))
     
-    early_stop = EarlyStopping(monitor='mean_absolute_error', min_delta=10, patience=2, 
+    early_stop = EarlyStopping(monitor='mean_absolute_error', min_delta=.1, patience=5, 
                                 restore_best_weights=True)
-    """
-    check = ModelCheckpoint("models/{}_model.hdf5".format(PREFIX), 
+
+    check = ModelCheckpoint("{}_model.hdf5".format(PREFIX), 
             monitor='mean_absolute_error', save_best_only=True, 
             save_weights_only=False, period=1)
-    """
+
     metric = MetricHistory()
     
     model.compile(loss='mean_squared_error',
@@ -111,16 +117,16 @@ def neural_network_2c(params):
     history = model.fit_generator(msms_gen.data_generator(BATCHSIZE), 
             steps_per_epoch=NUMTRAIN/NUMEPOCHS, epochs=NUMEPOCHS, 
             workers=CORES, use_multiprocessing=True, 
-            callbacks=[early_stop, metric])
+            callbacks=[early_stop, metric, check])
     
     """
-    model.save(prefix + '_model.hdf5')
-    model.save_weights(prefix + '_weights.hdf5')
-
-    with open(prefix + '_trainhist.keras', 'wb') as f:
-        pickle.dump(history.history, f)
+    model.save(PREFIX + '_model.hdf5')
+    model.save_weights(PREFIX + '_weights.hdf5')
     """
 
+    with open(PREFIX + '_trainhist.keras', 'wb') as f:
+        pickle.dump(history.history, f)
+    
     return model, history
 
 if __name__ == "__main__":

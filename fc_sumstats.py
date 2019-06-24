@@ -24,12 +24,12 @@ import utils
 import tensorflow as tf
 
 TRAIN = True
-PREFIX = "best_cnn"
-SAVE_PERIOD = 10
+PREFIX = "models/sumstats"
+SAVE_PERIOD = 2
 
 class MetricHistory(keras.callbacks.Callback):
     def on_train_begin(self, logs={}):
-        self.metrics = {"rmse": math.inf, "mean_absolute_error": math.inf}
+        self.metrics = {"rmse": math.inf, "mean_absolute_error": math.inf} 
         self.all_metrics = {"rmse": [], "mean_absolute_error": []}
 
     def on_epoch_end(self, epoch, logs={}):
@@ -43,69 +43,63 @@ class MetricHistory(keras.callbacks.Callback):
         if epoch % SAVE_PERIOD == 0:
             for key in self.metrics:
                 self.metrics[key] = str(self.metrics[key])
-            with open("models/{}_metrics.json".format(PREFIX), "w") as outfile:
+            with open("{}_metrics.json".format(PREFIX), "w") as outfile:
                 json.dump(self.metrics, outfile)
             for key in self.metrics:
                 self.metrics[key] = float(self.metrics[key])
 
-            with open("models/{}_all_metrics.json".format(PREFIX), "w") as outfile:
+            with open("{}_all_metrics.json".format(PREFIX), "w") as outfile:
                 json.dump(self.all_metrics, outfile)
 
 
 def rmse(y_true, y_pred):
     return K.sqrt(K.mean(K.square(y_pred - y_true)))
 
-def neural_network_3c(params):
+def neural_network_fc(params):
     
     NUMEPOCHS = params.epochs
     BATCHSIZE = params.batchsize
     NUMTRAIN = params.total_sims
     CORES = params.cores
     l2_lambda = params.l2_lambda
-    ksize = (params.k_height, params.k_width)
-    poolsize = (params.pool_height, params.pool_width)
     
     msms_gen = MSprime_Generator(params.num_individuals, params.sequence_length, 
-            params.length_to_pad_to, params.pop_min, params.pop_max)
+            params.length_to_pad_to, params.pop_min, params.pop_max, yield_summary_stats=1)
     dims = msms_gen.dim
 
-    
     model = Sequential()
-     
-    model.add(Conv2D(params.conv_2D_1_out_dim, kernel_size=ksize, 
-        activation='relu',input_shape=dims, 
-        kernel_regularizer=keras.regularizers.l2(l2_lambda), 
-        data_format='channels_first'))
-    model.add(MaxPooling2D(pool_size=poolsize, data_format='channels_first'))
-    model.add(Dropout(params.conv_2D_1_drop))
     
-    model.add(Conv2D(params.conv_2D_2_out_dim, kernel_size=ksize, 
-        activation='relu',kernel_regularizer=keras.regularizers.l2(l2_lambda), 
-        data_format='channels_first'))
-    model.add(MaxPooling2D(pool_size=poolsize, data_format='channels_first'))
-    model.add(Dropout(params.conv_2D_2_drop))
-
-    model.add(Conv2D(params.conv_2D_3_out_dim, kernel_size=ksize, 
-        activation='relu',kernel_regularizer=keras.regularizers.l2(l2_lambda), 
-        data_format='channels_first'))
-    model.add(MaxPooling2D(pool_size=poolsize, data_format='channels_first'))
-    model.add(Dropout(params.conv_2D_3_drop))
-
-    model.add(Flatten())
-
     model.add(Dense(params.dense_1_dim, activation='relu', 
         kernel_initializer='normal',
-        kernel_regularizer=keras.regularizers.l2(l2_lambda)))
+        kernel_regularizer=keras.regularizers.l2(l2_lambda), 
+        input_shape=(1, 8)))
     model.add(Dropout(params.dense_1_drop))
+    
+    model.add(Flatten())
+    
+    model.add(Dense(params.dense_2_dim, activation='relu', 
+        kernel_initializer='normal',
+        kernel_regularizer=keras.regularizers.l2(l2_lambda)))
+    model.add(Dropout(params.dense_2_drop))    
+    
+    #model.add(Flatten())
+    
+    model.add(Dense(params.dense_3_dim, activation='relu', 
+        kernel_initializer='normal',
+        kernel_regularizer=keras.regularizers.l2(l2_lambda)))
+    model.add(Dropout(params.dense_3_drop))    
+    
+    #model.add(Flatten())
+
     model.add(Dense(3))
     
-    early_stop = EarlyStopping(monitor='mean_absolute_error', min_delta=5, patience=5, 
+    early_stop = EarlyStopping(monitor='mean_absolute_error', min_delta=.1, patience=5, 
                                 restore_best_weights=True)
-    
-    check = ModelCheckpoint("models/{}_model.hdf5".format(PREFIX), 
+
+    check = ModelCheckpoint("{}_model.hdf5".format(PREFIX), 
             monitor='mean_absolute_error', save_best_only=True, 
-            save_weights_only=False, period=5)
-    
+            save_weights_only=False, period=1)
+
     metric = MetricHistory()
     
     model.compile(loss='mean_squared_error',
@@ -120,13 +114,13 @@ def neural_network_3c(params):
             callbacks=[early_stop, metric, check])
     
     """
-    model.save(prefix + '_model.hdf5')
-    model.save_weights(prefix + '_weights.hdf5')
-
-    with open(prefix + '_trainhist.keras', 'wb') as f:
-        pickle.dump(history.history, f)
+    model.save(PREFIX + '_model.hdf5')
+    model.save_weights(PREFIX + '_weights.hdf5')
     """
 
+    with open(PREFIX + '_trainhist.keras', 'wb') as f:
+        pickle.dump(history.history, f)
+    
     return model, history
 
 if __name__ == "__main__":
@@ -135,8 +129,11 @@ if __name__ == "__main__":
 
     if TRAIN:
             
-        params = utils.Params("./configurations/10x1.json")
+        params = utils.Params("./configurations/sumstats.json")
         
-        neural_network_3c(params)
+        neural_network_fc(params)
     
-    
+    else:
+        model = load_model(PREFIX + '_model.hdf5')
+        hist = pickle.load(PREFIX + '_trainhist.keras')
+

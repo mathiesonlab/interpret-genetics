@@ -14,6 +14,7 @@ from contextlib import contextmanager
 import msprime
 import random
 import math
+import pickle
 
 NUMCHANNELS = 2 # Assume to always use both SNP and length matrix
 
@@ -53,7 +54,7 @@ class MSMS_Generator:
                     genotype = tree_sequence.genotype_matrix().astype(int)
                     genotype_padded = self.centered_padding(genotype)
                     X[i][0] = genotype_padded
-
+                
                     variant_iter = tree_sequence.variants()
                     first = next(variant_iter)
                     prev_pos = first.site.position
@@ -122,11 +123,12 @@ class MSprime_Generator:
     def data_generator(self, batch_size):
         
         while True:
-            y = np.empty((batch_size, 3), dtype=int)
+            y = np.empty((batch_size, 3), dtype=float)
             X = np.empty((batch_size, *self.dim))
             s = []
 
             for i in range(batch_size):
+                
                 N1 = np.random.choice(np.linspace(1, 10, 1000))
                 N2 = np.random.choice(np.linspace(1, 5, 500))
                 N3 = np.random.choice(np.linspace(1, 10, 1000))
@@ -148,11 +150,9 @@ class MSprime_Generator:
                 genotype = tree_sequence.genotype_matrix().astype(int)
                 s.append(genotype.shape[0])
                 genotype_padded = self.centered_padding(genotype)
-                y[i] = np.array([N1*self.pop_min, N2*self.pop_min, N3*self.pop_min])
+                y[i] = np.array([N1, N2, N3])
                 X[i][0] = genotype_padded
-
-            if self.summary_stats == 0:
-
+                
                 variant_iter = tree_sequence.variants()
                 first = next(variant_iter)
                 prev_pos = first.site.position
@@ -167,7 +167,26 @@ class MSprime_Generator:
                 distance_matrix = np.tile(distance_matrix, (1, self.num_individuals))
                 distance_padded = self.centered_padding(distance_matrix)
                 X[i][1] = distance_padded
+
+            if self.summary_stats == 0:
                 
+                """
+                variant_iter = tree_sequence.variants()
+                first = next(variant_iter)
+                prev_pos = first.site.position
+                pos_distances = [0]
+                for variant in variant_iter:
+                    pos = variant.site.position
+                    pos_distances.append(int(pos)-int(prev_pos))
+                    prev_pos = pos
+                
+                distance_matrix = np.array(pos_distances)
+                distance_matrix = np.reshape(distance_matrix, (len(pos_distances), 1))
+                distance_matrix = np.tile(distance_matrix, (1, self.num_individuals))
+                distance_padded = self.centered_padding(distance_matrix)
+                X[i][1] = distance_padded
+                """
+
                 yield X, y
 
             elif self.summary_stats == 1:
@@ -187,7 +206,7 @@ class MSprime_Generator:
                     lst.pop(0)
                     SFS.append(lst)
                 
-                SFS_folded = [0 for i in range(len(SFS))] 
+                SFS_folded = [] 
                 for i in range(len(SFS)):
                     lst = []
                     for j in range(math.ceil(len(SFS[i])/2)):
@@ -196,18 +215,27 @@ class MSprime_Generator:
                         else:
                             n = SFS[i][j] + SFS[i][len(SFS[i]) - 1 - j]
                             lst.append(n)
-                    SFS_folded[i] = lst
+                    SFS_folded.append(lst)
 
                 pi_lst = []
                 for i in range(len(SFS_folded)):
-                    pi = sum([(SFS_folded[i][j] * j * (self.num_individuals-j)) for j in \
-                            range(len(SFS_folded[j]))]) * 2 / \
-                            (2*self.num_individuals * (2*self.num_individuals - 1))
+                    pi = 0
+                    for j in range(len(SFS_folded[i])):
+                        pi += SFS_folded[i][j] * (j+1) * (self.num_individuals-(j+1))
+                    pi *= 1 / (self.num_individuals * (self.num_individuals-1)/2)
                     pi_lst.append(pi)
                 
+                a1 = 0
+                for i in range(1, self.num_individuals):
+                    a1 += 1/i
+
+                tajd_lst = []
+                for i in range(len(pi_lst)):
+                    tajd_lst.append(pi_lst[i] - (s[i]/a1))
+
                 matrix = []
                 for i in range(batch_size):
-                    element = [s[i], pi_lst[i], *SFS_folded[i]]
+                    element = [s[i], pi_lst[i], *SFS_folded[i], tajd_lst[i]]
                     matrix.append(element)
                 matrix = np.array(matrix)
 
@@ -248,3 +276,4 @@ if __name__ == "__main__":
     X, y = next(generator)
     print(X.shape)
     print(X)
+
