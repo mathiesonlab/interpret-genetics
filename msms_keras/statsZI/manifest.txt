@@ -1,3 +1,0 @@
-Main-Class: statistics.ZIstatsSimData
-Class-Path: JSAP-2.1.jar
-

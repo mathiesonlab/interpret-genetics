@@ -23,7 +23,7 @@ import utils
 
 import tensorflow as tf
 
-TRAIN = True
+TRAIN = False
 PREFIX = "models/sumstats"
 SAVE_PERIOD = 2
 
@@ -72,25 +72,19 @@ def neural_network_fc(params):
     model.add(Dense(params.dense_1_dim, activation='relu', 
         kernel_initializer='normal',
         kernel_regularizer=keras.regularizers.l2(l2_lambda), 
-        input_shape=(1, 8)))
+        input_dim=8))
     model.add(Dropout(params.dense_1_drop))
-    
-    model.add(Flatten())
     
     model.add(Dense(params.dense_2_dim, activation='relu', 
         kernel_initializer='normal',
         kernel_regularizer=keras.regularizers.l2(l2_lambda)))
     model.add(Dropout(params.dense_2_drop))    
     
-    #model.add(Flatten())
-    
     model.add(Dense(params.dense_3_dim, activation='relu', 
         kernel_initializer='normal',
         kernel_regularizer=keras.regularizers.l2(l2_lambda)))
     model.add(Dropout(params.dense_3_drop))    
     
-    #model.add(Flatten())
-
     model.add(Dense(3))
     
     early_stop = EarlyStopping(monitor='mean_absolute_error', min_delta=.1, patience=5, 
@@ -134,6 +128,16 @@ if __name__ == "__main__":
         neural_network_fc(params)
     
     else:
-        model = load_model(PREFIX + '_model.hdf5')
-        hist = pickle.load(PREFIX + '_trainhist.keras')
+        model = load_model(PREFIX + '_model.hdf5', custom_objects={"rmse": rmse})
+        with open("sumstats_X.keras", 'rb') as f:
+            X = pickle.load(f)
+        with open("sumstats_y.keras", 'rb') as f:
+            y = pickle.load(f)
+
+        y_pred = model.predict(X, batch_size=32)
+        
+        diff = y_pred - y
+        mean_diff = np.mean(diff, axis=0)
+        print(mean_diff)
+        print(np.mean(mean_diff))
 

@@ -23,7 +23,7 @@ import utils
 
 import tensorflow as tf
 
-TRAIN = True
+TRAIN = False
 PREFIX = "models/test"
 SAVE_PERIOD = 2
 
@@ -140,6 +140,16 @@ if __name__ == "__main__":
         neural_network_2c(params)
     
     else:
-        model = load_model(PREFIX + '_model.hdf5')
-        hist = pickle.load(PREFIX + '_trainhist.keras')
+        model = load_model(PREFIX + '_model.hdf5', custom_objects={"rmse": rmse})
+        with open("snp_X.keras", 'rb') as f:
+            X = pickle.load(f)
+        with open("snp_y.keras", 'rb') as f:
+            y = pickle.load(f)
+
+        y_pred = model.predict(X, batch_size=32)
+        
+        diff = y_pred - y
+        mean_diff = np.mean(diff, axis=0)
+        print(mean_diff)
+        print(np.mean(mean_diff))
 

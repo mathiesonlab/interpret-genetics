@@ -271,9 +271,54 @@ class MSprime_Generator:
 
    
 if __name__ == "__main__":
-    msms_gen = MSprime_Generator(10, 1000000, 800, 1000, 10000, yield_summary_stats=1)
-    generator = msms_gen.data_generator(8)
-    X, y = next(generator)
+    """
+    msms_gen = MSprime_Generator(10, 1000000, 800, 1000, 10000, yield_summary_stats=0)
+    generator = msms_gen.data_generator(1)
+    X_lst = []
+    y_lst = []
+    for i in range(30000):
+        X, y = next(generator)
+        X_lst.append(X)
+        y_lst.append(y)
+    
+    X = np.concatenate(X_lst, axis=0)
+    y = np.concatenate(y_lst, axis=0)
+    with open("snp_X.keras", 'wb') as f:
+        pickle.dump(X, f)
+    with open("snp_y.keras", 'wb') as f:
+        pickle.dump(y, f)
+    
+    with open("snp_X.keras", 'rb') as f:
+        X = pickle.load(f)
+    with open("snp_y.keras", 'rb') as f:
+        y = pickle.load(f)
+
     print(X.shape)
-    print(X)
+    print(y.shape)
+    """
+    msms_gen = MSprime_Generator(10, 1000000, 800, 1000, 10000, yield_summary_stats=1)
+    generator = msms_gen.data_generator(1)
+    X_lst = []
+    y_lst = []
+    for i in range(30000):
+        X, y = next(generator)
+        X_lst.append(X)
+        y_lst.append(y)
+    
+    X = np.concatenate(X_lst, axis=0)
+    y = np.concatenate(y_lst, axis=0)
+    with open("sumstats_X.keras", 'wb') as f:
+        pickle.dump(X, f)
+    with open("sumstats_y.keras", 'wb') as f:
+        pickle.dump(y, f)
+    
+    with open("sumstats_X.keras", 'rb') as f:
+        X = pickle.load(f)
+    with open("sumstats_y.keras", 'rb') as f:
+        y = pickle.load(f)
+
+    print(X.shape)
+    print(y.shape)
+
+
 
