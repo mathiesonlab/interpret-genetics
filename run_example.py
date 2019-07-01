@@ -14,6 +14,7 @@ import os
 import pandas as pd
 import math
 import json
+import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
 import pickle
@@ -23,8 +24,8 @@ import utils
 
 import tensorflow as tf
 
-TRAIN = False
-PREFIX = "models/test"
+TRAIN = True
+PREFIX = "models/test2"
 SAVE_PERIOD = 2
 
 class MetricHistory(keras.callbacks.Callback):
@@ -75,19 +76,19 @@ def neural_network_2c(params):
     model.add(Conv2D(params.conv_2D_1_out_dim, kernel_size=ksize, 
         activation='relu',input_shape=dims, 
         kernel_regularizer=keras.regularizers.l2(l2_lambda), 
-        data_format='channels_first'))
+        data_format='channels_first', strides=(1, params.stride)))
     model.add(MaxPooling2D(pool_size=poolsize, data_format='channels_first'))
     model.add(Dropout(params.conv_2D_1_drop))
     
     model.add(Conv2D(params.conv_2D_2_out_dim, kernel_size=ksize, 
         activation='relu',kernel_regularizer=keras.regularizers.l2(l2_lambda), 
-        data_format='channels_first'))
+        data_format='channels_first', strides=(1, params.stride)))
     model.add(MaxPooling2D(pool_size=poolsize, data_format='channels_first'))
     model.add(Dropout(params.conv_2D_2_drop))
 
     model.add(Conv2D(params.conv_2D_3_out_dim, kernel_size=ksize, 
         activation='relu',kernel_regularizer=keras.regularizers.l2(l2_lambda), 
-        data_format='channels_first'))
+        data_format='channels_first', strides=(1, params.stride)))
     model.add(MaxPooling2D(pool_size=poolsize, data_format='channels_first'))
     model.add(Dropout(params.conv_2D_3_drop))    
     
@@ -141,9 +142,9 @@ if __name__ == "__main__":
     
     else:
         model = load_model(PREFIX + '_model.hdf5', custom_objects={"rmse": rmse})
-        with open("snp_X.keras", 'rb') as f:
+        with open("snp_X3k.keras", 'rb') as f:
             X = pickle.load(f)
-        with open("snp_y.keras", 'rb') as f:
+        with open("snp_y3k.keras", 'rb') as f:
             y = pickle.load(f)
 
         y_pred = model.predict(X, batch_size=32)
@@ -152,4 +153,26 @@ if __name__ == "__main__":
         mean_diff = np.mean(diff, axis=0)
         print(mean_diff)
         print(np.mean(mean_diff))
+        
+        """
+        t1 = 0
+        t2 = 1786
+        t3 = 3571
+        x = [t1, t2, t2, t3, t3, 5000]
+        y_real = y[0]
+        y0 = [y_real[0], y_real[0], y_real[1]/10, y_real[1]/10, y_real[2], y_real[2]]
+        y_pred1 = y_pred[0]
+        y1 = [y_pred1[0], y_pred1[0], y_pred1[1]/10, y_pred1[1]/10, 
+                y_pred1[2], y_pred1[2]]
+        plt.plot(x, y0, "r-", label="real")
+        plt.plot(x, y1, "b-", label="predicted")
+
+        plt.xlabel("Time (generations)")
+        plt.ylabel("Population Scaling Factor (x10,000)")
+
+        plt.title("Prediction vs Truth")
+        plt.legend()
+        plt.show()
+        """
+        
 

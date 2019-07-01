@@ -129,9 +129,9 @@ if __name__ == "__main__":
     
     else:
         model = load_model(PREFIX + '_model.hdf5', custom_objects={"rmse": rmse})
-        with open("sumstats_X.keras", 'rb') as f:
+        with open("sumstats_X3k.keras", 'rb') as f:
             X = pickle.load(f)
-        with open("sumstats_y.keras", 'rb') as f:
+        with open("sumstats_y3k.keras", 'rb') as f:
             y = pickle.load(f)
 
         y_pred = model.predict(X, batch_size=32)

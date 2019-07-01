@@ -1,7 +1,7 @@
 {
     "num_individuals": 10,
     "sequence_length": 1000000,
-    "length_to_pad_to": 800,
+    "length_to_pad_to": 8000,
     "total_sims": 100000, 
     "pop_min": 1000, 
     "pop_max": 10000, 

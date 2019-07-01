@@ -129,16 +129,16 @@ class MSprime_Generator:
 
             for i in range(batch_size):
                 
-                N1 = np.random.choice(np.linspace(1, 10, 1000))
-                N2 = np.random.choice(np.linspace(1, 5, 500))
-                N3 = np.random.choice(np.linspace(1, 10, 1000))
+                N1 = np.random.choice(np.linspace(1, 10, 10000))
+                N2 = np.random.choice(np.linspace(1, 10, 10000))
+                N3 = np.random.choice(np.linspace(1, 10, 10000))
                 
                 demo1 = msprime.PopulationParametersChange(time=0, 
-                        initial_size=N1 * self.pop_min)
+                        initial_size=N1 * self.pop_max)
                 demo2 = msprime.PopulationParametersChange(time=1786, 
                         initial_size=N2 * self.pop_min)
                 demo3 = msprime.PopulationParametersChange(time=3571, 
-                        initial_size=N3 * self.pop_min)
+                        initial_size=N3 * self.pop_max)
                 demos = [demo1, demo2, demo3]
 
                 tree_sequence = msprime.simulate(sample_size=self.num_individuals, 
@@ -189,17 +189,17 @@ class MSprime_Generator:
 
                 yield X, y
 
-            elif self.summary_stats == 1:
+            elif self.summary_stats == 1 or self.summary_stats == 2:
 
-                X = X[:,0]
+                X_new = X[:,0]
                 SFS = []
 
                 for batch in range(batch_size):
                     lst = [0 for i in range(self.num_individuals)]
-                    for i in range(X.shape[1]):
+                    for i in range(X_new.shape[1]):
                         count = 0
-                        for j in range(X.shape[2]):
-                            if X[batch, i, j] == 1:
+                        for j in range(X_new.shape[2]):
+                            if X_new[batch, i, j] == 1:
                                 count += 1
                         lst[count] += 1
 
@@ -237,10 +237,15 @@ class MSprime_Generator:
                 for i in range(batch_size):
                     element = [s[i], pi_lst[i], *SFS_folded[i], tajd_lst[i]]
                     matrix.append(element)
-                matrix = np.array(matrix)
+                matrix = np.array(matrix, dtype=float)
+                
+                if self.summary_stats == 1:
+                    yield matrix, y
 
-                yield matrix, y
-                            
+                
+            if self.summary_stats == 2:
+                yield X, matrix, y
+
 
                 
 
@@ -271,12 +276,13 @@ class MSprime_Generator:
 
    
 if __name__ == "__main__":
+
     """
-    msms_gen = MSprime_Generator(10, 1000000, 800, 1000, 10000, yield_summary_stats=0)
+    msms_gen = MSprime_Generator(10, 1000000, 8000, 1000, 10000, yield_summary_stats=0)
     generator = msms_gen.data_generator(1)
     X_lst = []
     y_lst = []
-    for i in range(30000):
+    for i in range(10000):
         X, y = next(generator)
         X_lst.append(X)
         y_lst.append(y)
@@ -295,12 +301,12 @@ if __name__ == "__main__":
 
     print(X.shape)
     print(y.shape)
-    """
-    msms_gen = MSprime_Generator(10, 1000000, 800, 1000, 10000, yield_summary_stats=1)
+    
+    msms_gen = MSprime_Generator(10, 1000000, 8000, 1000, 10000, yield_summary_stats=1)
     generator = msms_gen.data_generator(1)
     X_lst = []
     y_lst = []
-    for i in range(30000):
+    for i in range(10000):
         X, y = next(generator)
         X_lst.append(X)
         y_lst.append(y)
@@ -320,5 +326,16 @@ if __name__ == "__main__":
     print(X.shape)
     print(y.shape)
 
+    msms_gen = MSprime_Generator(10, 1000000, 8000, 1000, 10000, yield_summary_stats=1)
+    gen = msms_gen.data_generator(8)
+    X, y = next(gen)
+    print(X)
 
-
+    """
+    msms_gen = MSprime_Generator(10, 1000000, 8000, 1000, 10000, yield_summary_stats=2)
+    gen = msms_gen.data_generator(1)
+    X, matrix, y = next(gen)
+    print(X.shape)
+    print(matrix.shape)
+    print(y.shape)
+    
