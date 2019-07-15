@@ -25,7 +25,7 @@ import utils
 import tensorflow as tf
 
 TRAIN = False
-PREFIX = "models/test"
+PREFIX = "models/log_loss"
 SAVE_PERIOD = 2
 
 class MetricHistory(keras.callbacks.Callback):
@@ -109,7 +109,7 @@ def neural_network_2c(params):
 
     metric = MetricHistory()
     
-    model.compile(loss='mean_squared_error',
+    model.compile(loss='mean_squared_logarithmic_error',
                       optimizer=keras.optimizers.Adam(),
                       metrics=[rmse, 'mean_absolute_error'])
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
         mean_diff = np.mean(diff, axis=0)
         print(mean_diff)
         print(np.mean(mean_diff))
-        
+        print(y_pred)      
         """
         t1 = 0
         t2 = 1786

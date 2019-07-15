@@ -25,7 +25,7 @@ import utils
 import tensorflow as tf
 
 TRAIN = False
-PREFIX = "models/test"
+PREFIX = "models/range_shift"
 SAVE_PERIOD = 2
 
 class MetricHistory(keras.callbacks.Callback):
@@ -55,6 +55,14 @@ class MetricHistory(keras.callbacks.Callback):
 
 def rmse(y_true, y_pred):
     return K.sqrt(K.mean(K.square(y_pred - y_true)))
+
+def range_shift(y_true, y_pred):
+    numerator = K.mean(K.abs(y_true - y_pred))
+    shift = K.mean(K.variable(np.array([11,11,11])) - y_true)
+    mean = K.mean(y_true)
+    denominator = tf.maximum(shift, mean)
+
+    return numerator/denominator
 
 def neural_network_2c(params):
     
@@ -100,7 +108,7 @@ def neural_network_2c(params):
     model.add(Dropout(params.dense_1_drop))
     model.add(Dense(3))
     
-    early_stop = EarlyStopping(monitor='mean_absolute_error', min_delta=.1, patience=5, 
+    early_stop = EarlyStopping(monitor='mean_absolute_error',min_delta=.1, patience=10, 
                                 restore_best_weights=True)
 
     check = ModelCheckpoint("{}_model.hdf5".format(PREFIX), 
@@ -109,7 +117,7 @@ def neural_network_2c(params):
 
     metric = MetricHistory()
     
-    model.compile(loss='mean_squared_error',
+    model.compile(loss=range_shift,
                       optimizer=keras.optimizers.Adam(),
                       metrics=[rmse, 'mean_absolute_error'])
 
@@ -141,17 +149,19 @@ if __name__ == "__main__":
         neural_network_2c(params)
     
     else:
-        model = load_model(PREFIX + '_model.hdf5', custom_objects={"rmse": rmse})
+        model = load_model(PREFIX + '_model.hdf5', custom_objects={"rmse": rmse, 
+            "range_shift": range_shift})
         with open("snp_X3k.keras", 'rb') as f:
             X = pickle.load(f)
         with open("snp_y3k.keras", 'rb') as f:
             y = pickle.load(f)
 
         y_pred = model.predict(X, batch_size=32)
-        diff = y_pred - y
+        diff = abs(y_pred - y)
         mean_diff = np.mean(diff, axis=0)
+        print(np.mean(y_pred, axis=0))
+        print(np.mean(y, axis=0))
         print(mean_diff)
-        print(np.mean(mean_diff))
         
         """
         t1 = 0

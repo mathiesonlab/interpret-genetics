@@ -25,7 +25,7 @@ import utils
 import tensorflow as tf
 
 TRAIN = False
-PREFIX = "models/test"
+PREFIX = "models/mape"
 SAVE_PERIOD = 2
 
 class MetricHistory(keras.callbacks.Callback):
@@ -109,7 +109,7 @@ def neural_network_2c(params):
 
     metric = MetricHistory()
     
-    model.compile(loss='mean_squared_error',
+    model.compile(loss='mean_absolute_percentage_error',
                       optimizer=keras.optimizers.Adam(),
                       metrics=[rmse, 'mean_absolute_error'])
 
@@ -148,10 +148,10 @@ if __name__ == "__main__":
             y = pickle.load(f)
 
         y_pred = model.predict(X, batch_size=32)
-        diff = y_pred - y
+        diff = abs(y_pred - y)
         mean_diff = np.mean(diff, axis=0)
+        print(np.mean(y_pred, axis=0))
         print(mean_diff)
-        print(np.mean(mean_diff))
         
         """
         t1 = 0

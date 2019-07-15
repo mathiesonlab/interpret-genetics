@@ -19,13 +19,13 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import pickle
 
-from msms_keras.MSMS_Generator import MSMS_Generator, MSprime_Generator
+from msms_keras.MSMS_Generator import OnePop_Generator
 import utils
 
 import tensorflow as tf
 
-TRAIN = False
-PREFIX = "models/test"
+TRAIN = False 
+PREFIX = "models/one_pop"
 SAVE_PERIOD = 2
 
 class MetricHistory(keras.callbacks.Callback):
@@ -66,7 +66,7 @@ def neural_network_2c(params):
     ksize = (params.k_height, params.k_width)
     poolsize = (params.pool_height, params.pool_width)
     
-    msms_gen = MSprime_Generator(params.num_individuals, params.sequence_length, 
+    msms_gen = OnePop_Generator(params.num_individuals, params.sequence_length, 
             params.length_to_pad_to, params.pop_min, params.pop_max)
     dims = msms_gen.dim
 
@@ -98,7 +98,7 @@ def neural_network_2c(params):
         kernel_initializer='normal',
         kernel_regularizer=keras.regularizers.l2(l2_lambda)))
     model.add(Dropout(params.dense_1_drop))
-    model.add(Dense(3))
+    model.add(Dense(1))
     
     early_stop = EarlyStopping(monitor='mean_absolute_error', min_delta=.1, patience=5, 
                                 restore_best_weights=True)
@@ -142,17 +142,16 @@ if __name__ == "__main__":
     
     else:
         model = load_model(PREFIX + '_model.hdf5', custom_objects={"rmse": rmse})
-        with open("snp_X3k.keras", 'rb') as f:
-            X = pickle.load(f)
-        with open("snp_y3k.keras", 'rb') as f:
-            y = pickle.load(f)
-
-        y_pred = model.predict(X, batch_size=32)
-        diff = y_pred - y
-        mean_diff = np.mean(diff, axis=0)
-        print(mean_diff)
-        print(np.mean(mean_diff))
+        msms_gen = OnePop_Generator(10, 1000000, 
+            8000, 1000, 10000)
+        gen = msms_gen.data_generator(16)
+        X, y = next(gen)
         
+        y_pred = model.predict(X, batch_size=16)
+        print(y_pred)
+        diff = np.absolute(y_pred - y.reshape(16,1))
+        print(diff)
+
         """
         t1 = 0
         t2 = 1786
