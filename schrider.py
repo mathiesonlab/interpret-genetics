@@ -1,7 +1,7 @@
 from os import sys
 import keras
 from keras.models import Sequential, load_model
-from keras.layers import Dense, Conv1D, Conv2D, Flatten, MaxPooling2D, MaxPooling1D, Dropout, AveragePooling2D, AveragePooling1D, LeakyReLU
+from keras.layers import Dense, Conv1D, Conv2D, Flatten, MaxPooling2D, MaxPooling1D, Dropout, AveragePooling2D, AveragePooling1D, LeakyReLU, Input, concatenate
 import keras.backend as K
 from keras import optimizers
 import keras.callbacks
@@ -19,13 +19,13 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import pickle
 
-from msms_keras.MSMS_Generator import MSMS_Generator, MSprime_Generator
+from msms_keras.MSMS_Generator import Schrider_Generator
 import utils
 
 import tensorflow as tf
 
 TRAIN = False
-PREFIX = "models/test"
+PREFIX = "models/schrider"
 SAVE_PERIOD = 2
 
 class MetricHistory(keras.callbacks.Callback):
@@ -66,11 +66,57 @@ def neural_network_2c(params):
     ksize = (params.k_height, params.k_width)
     poolsize = (params.pool_height, params.pool_width)
     
-    msms_gen = MSprime_Generator(params.num_individuals, params.sequence_length, 
+    msms_gen = Schrider_Generator(params.num_individuals, params.sequence_length, 
             params.length_to_pad_to, params.pop_min, params.pop_max)
     dims = msms_gen.dim
-
     
+    input1 = Input(shape=dims)
+    input2 = Input(shape=dims)
+    
+    x = Conv2D(params.conv_2D_1_out_dim, kernel_size=ksize, 
+        kernel_regularizer=keras.regularizers.l2(l2_lambda), 
+        strides=(params.stridex, params.stridey))(input1)
+    x = LeakyReLU()(x)
+    x = MaxPooling2D(pool_size=poolsize)(x)
+    x = Dropout(params.conv_2D_1_drop)(x)
+    
+    x = Conv2D(params.conv_2D_2_out_dim, kernel_size=ksize, 
+        kernel_regularizer=keras.regularizers.l2(l2_lambda), 
+        strides=(params.stridex, params.stridey))(x)
+    x = LeakyReLU()(x)
+    x = MaxPooling2D(pool_size=poolsize)(x)
+    x = Dropout(params.conv_2D_2_drop)(x)
+    
+    x = Conv2D(params.conv_2D_3_out_dim, kernel_size=ksize, 
+        kernel_regularizer=keras.regularizers.l2(l2_lambda), 
+        strides=(params.stridex, params.stridey))(x)
+    x = LeakyReLU()(x)
+    x = MaxPooling2D(pool_size=poolsize)(x)
+    x = Dropout(params.conv_2D_3_drop)(x)
+
+    x = Conv2D(params.conv_2D_4_out_dim, kernel_size=ksize, 
+        kernel_regularizer=keras.regularizers.l2(l2_lambda), 
+        strides=(params.stridex, params.stridey))(x)
+    x = LeakyReLU()(x)
+    x = MaxPooling2D(pool_size=poolsize)(x)
+    x = Dropout(params.conv_2D_4_drop)(x)  
+
+    x = Flatten()(x)
+
+    y = Dense(params.dense_1_dim, kernel_initializer='normal', 
+            kernel_regularizer=keras.regularizers.l2(l2_lambda))(input2)
+    y = Dropout(params.dense_1_drop)(y)
+
+    combined = concatenate([x.output, y.output])
+
+    z = Dense(params.dense_2_dim, kernel_initializer='normal', 
+            kernel_regularizer=keras.regularizers.l2(l2_lambda))(combined)
+    z = Dropout(params.dense_2_drop)(z)
+    z = Dense(3)(z)
+
+    model = Model(inputs=[x.input, y.input], outputs=z)
+    
+    """
     model = Sequential()
      
     model.add(Conv2D(params.conv_2D_1_out_dim, kernel_size=ksize, 
@@ -103,6 +149,7 @@ def neural_network_2c(params):
     model.add(LeakyReLU())
     model.add(Dropout(params.dense_1_drop))
     model.add(Dense(3))
+    """
     
     early_stop = EarlyStopping(monitor='mean_absolute_error', min_delta=.05, patience=10, 
                                 restore_best_weights=True)
@@ -140,7 +187,7 @@ if __name__ == "__main__":
 
     if TRAIN:
             
-        params = utils.Params("./configurations/example2.json")
+        params = utils.Params("./configurations/schrider.json")
         
         neural_network_2c(params)
     

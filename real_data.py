@@ -24,6 +24,7 @@ import pickle
 from msms_keras.MSMS_Generator import MSMS_Generator, MSprime_Generator
 import utils
 from run_example import rmse, MetricHistory
+from range_shift import range_shift
 
 import tensorflow as tf
 
@@ -85,7 +86,8 @@ def main():
     X = np.stack(X_lst)
     summstats = np.concatenate(stat_lst)
 
-    cnn_model = load_model('models/mape_model.hdf5', custom_objects={"rmse": rmse})
+    cnn_model = load_model('models/range_shift_model.hdf5', custom_objects={"rmse": rmse, 
+                        "range_shift": range_shift})
     fc_model = load_model('models/sumstats_model.hdf5', custom_objects={"rmse": rmse})
     
     cnn_pred = cnn_model.predict(X, batch_size=16)
@@ -124,7 +126,7 @@ def main():
 
     plt.title("Real Data (CNN mean vs FC mean)")
     plt.legend()
-    #plt.savefig("mean.ps")
+    plt.savefig("mean.png")
     
     plt.figure()
     for i in range(cnn_pred.shape[0]):
@@ -144,7 +146,7 @@ def main():
     plt.ylabel("Population Scaling Factor (x10,000)")
 
     plt.title("Real Data (CNN)")
-    plt.savefig("cnn.ps")
+    plt.savefig("cnn.png")
  
     plt.figure()
     for i in range(cnn_pred.shape[0]):
@@ -163,7 +165,7 @@ def main():
     plt.ylabel("Population Scaling Factor (x10,000)")
 
     plt.title("Real Data (FC)")
-    #plt.savefig("fc.ps")
+    plt.savefig("fc.png")
 
 def centered_padding(matrix, length_to_extend_to):
     

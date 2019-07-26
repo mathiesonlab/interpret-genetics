@@ -202,6 +202,68 @@ class DiscreteNet:
 
         return model
 
+def late_fork(num_buckets, params):
+    l2_lambda = params.l2_lambda
+    ksize = (params.k_height, params.k_width)
+    poolsize = (params.pool_height, params.pool_width)
+    NUMEPOCHS = params.epochs
+    BATCHSIZE = params.batchsize
+    NUMTRAIN = params.total_sims
+    CORES = params.cores
+    msms_gen = Discrete_Generator(params.num_individuals, params.sequence_length, 
+            params.length_to_pad_to, params.pop_min, params.pop_max)
+    dims = msms_gen.dim
+    
+    inputs = Input(shape=dims)
+
+    
+    x = Conv2D(params.conv_2D_1_out_dim, kernel_size=ksize, 
+        activation='relu', 
+        kernel_regularizer=keras.regularizers.l2(l2_lambda), 
+        data_format='channels_first', strides=(1, params.stride))(inputs)
+    x = MaxPooling2D(pool_size=poolsize, data_format='channels_first')(x)
+    x = Dropout(params.conv_2D_1_drop)(x)
+    
+    x = Conv2D(params.conv_2D_2_out_dim, kernel_size=ksize, 
+        activation='relu',kernel_regularizer=keras.regularizers.l2(l2_lambda), 
+        data_format='channels_first', strides=(1, params.stride))(x)
+    x = MaxPooling2D(pool_size=poolsize, data_format='channels_first')(x)
+    x = Dropout(params.conv_2D_2_drop)(x)
+
+    x = Conv2D(params.conv_2D_3_out_dim, kernel_size=ksize, 
+        activation='relu',kernel_regularizer=keras.regularizers.l2(l2_lambda), 
+        data_format='channels_first', strides=(1, params.stride))(x)
+    x = MaxPooling2D(pool_size=poolsize, data_format='channels_first')(x)
+    x = Dropout(params.conv_2D_3_drop)(x)
+    
+    x = Flatten()(x)
+
+    N1_branch = Dense(params.dense_1_dim, activation='relu', 
+        kernel_initializer='normal',
+        kernel_regularizer=keras.regularizers.l2(l2_lambda))(x)
+    N1_branch = Dropout(params.dense_1_drop)(N1_branch)
+    N1_branch = Dense(num_buckets)(N1_branch)
+    N1_branch = Activation('softmax', name="N1_branch")(N1_branch)
+    
+    N2_branch = Dense(params.dense_1_dim, activation='relu', 
+        kernel_initializer='normal',
+        kernel_regularizer=keras.regularizers.l2(l2_lambda))(x)
+    N2_branch = Dropout(params.dense_1_drop)(N2_branch)
+    N2_branch = Dense(num_buckets)(N2_branch)
+    N2_branch = Activation('softmax', name="N2_branch")(N2_branch)
+    
+    N3_branch = Dense(params.dense_1_dim, activation='relu', 
+        kernel_initializer='normal',
+        kernel_regularizer=keras.regularizers.l2(l2_lambda))(x)
+    N3_branch = Dropout(params.dense_1_drop)(N3_branch)
+    N3_branch = Dense(num_buckets)(N3_branch)
+    N3_branch = Activation('softmax', name="N3_branch")(N3_branch)
+
+        
+    model = Model(inputs=inputs, outputs=[N1_branch, N2_branch, N3_branch],
+                name="DiscreteNet")
+
+    return model
 
 if __name__ == "__main__":
     from keras.backend import tensorflow_backend
@@ -222,8 +284,8 @@ if __name__ == "__main__":
         
         msms_gen = Discrete_Generator(params.num_individuals, params.sequence_length, 
                 params.length_to_pad_to, params.pop_min, params.pop_max)
-        model = DiscreteNet.build(params, num_buckets)
-
+        #model = DiscreteNet.build(params, num_buckets)
+        model = late_fork(num_buckets, params) 
         early_stop = EarlyStopping(monitor='loss', min_delta=.05, 
                 patience=10, restore_best_weights=True)
 
@@ -238,7 +300,7 @@ if __name__ == "__main__":
                     "N3_branch": "categorical_crossentropy"} 
         loss_weights = {"N1_branch": 1.0,
                         "N2_branch": 1.0, 
-                        "N3_branch": 1.0} 
+                        "N3_branch": 2.0} 
         
         model.compile(loss=losses, loss_weights=loss_weights,
                 optimizer=keras.optimizers.Adam(),

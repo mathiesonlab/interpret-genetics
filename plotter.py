@@ -25,19 +25,24 @@ import utils
 import tensorflow as tf
 
 from run_example import rmse, MetricHistory
+from range_shift import range_shift
 
 def main():
 
-    cnn_model = load_model('models/test_model.hdf5', custom_objects={"rmse": rmse})
+    cnn_model = load_model('models/range_shift_model.hdf5', custom_objects={"rmse": rmse,
+                                "range_shift": range_shift})
     fc_model = load_model('models/sumstats_model.hdf5', custom_objects={"rmse": rmse})
      
     msms_gen = MSprime_Generator(10, 1000000, 8000, 1000, 10000, yield_summary_stats=2)
     gen = msms_gen.data_generator(1)
     X, matrix, y_real = next(gen)
+    #y_real = np.mean(y_real, axis=0)
 
     cnn_pred = cnn_model.predict(X, batch_size=1)
-    cnn_pred = cnn_pred.reshape((3,))
+    cnn_pred = np.mean(cnn_pred, axis=0)
+    #cnn_pred = cnn_pred.reshape((3,))
     fc_pred = fc_model.predict(matrix, batch_size=1)
+    #fc_pred = np.mean(fc_pred, axis=0)
     fc_pred = fc_pred.reshape((3,))
 
     t1 = 0
