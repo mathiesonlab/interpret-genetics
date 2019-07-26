@@ -369,7 +369,7 @@ class Schrider_Generator:
         self.length_to_extend_to = length_to_extend_to 
         self.pop_min = pop_min
         self.pop_max = pop_max
-        self.dim = (self.length_to_extend_to, self.num_individuals)
+        self.dim = (1, self.length_to_extend_to, self.num_individuals)
         self.summary_stats = yield_summary_stats
 
 
@@ -405,7 +405,7 @@ class Schrider_Generator:
                 s.append(genotype.shape[0])
                 genotype_padded = self.centered_padding(genotype)
                 y[i] = np.array([N1, N2, N3])
-                X1[i] = genotype_padded
+                X1[i][0] = genotype_padded
                 
                 variant_iter = tree_sequence.variants()
                 first = next(variant_iter)
@@ -420,7 +420,7 @@ class Schrider_Generator:
                 distance_matrix = np.reshape(distance_matrix, (len(pos_distances), 1))
                 distance_matrix = np.tile(distance_matrix, (1, self.num_individuals))
                 distance_padded = self.centered_padding(distance_matrix)
-                X2[i] = distance_padded
+                X2[i][0] = distance_padded
 
             if self.summary_stats == 0:
                 
@@ -499,6 +499,29 @@ class Schrider_Generator:
                 
             if self.summary_stats == 2:
                 yield X, matrix, y
+
+    def centered_padding(self, matrix):
+        
+        diff = self.length_to_extend_to - matrix.shape[0]
+        if diff >= 0:
+            if diff % 2 == 0:
+                zero1 = np.zeros((diff//2, matrix.shape[1]))
+                zero2 = np.zeros((diff//2, matrix.shape[1]))
+            else:
+                zero1 = np.zeros((diff//2 + 1, matrix.shape[1]))
+                zero2 = np.zeros((diff//2, matrix.shape[1]))
+            return np.concatenate((zero1, matrix, zero2), axis=0)
+        else:
+            diff *= -1
+            if diff % 2 == 0:
+                arr = np.delete(matrix, range(diff//2), axis=0)
+                arr = np.delete(arr, range(arr.shape[0] - diff//2, arr.shape[0]),
+                        axis=0)
+            else:
+                arr = np.delete(matrix, range(diff//2), axis=0)
+                arr = np.delete(arr, range(arr.shape[0] - (diff//2 + 1), arr.shape[0]), 
+                        axis=0)
+            return arr
 
 
 class Discrete_Generator:

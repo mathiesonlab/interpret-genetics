@@ -1,6 +1,6 @@
 from os import sys
 import keras
-from keras.models import Sequential, load_model
+from keras.models import Sequential, load_model, Model
 from keras.layers import Dense, Conv1D, Conv2D, Flatten, MaxPooling2D, MaxPooling1D, Dropout, AveragePooling2D, AveragePooling1D, LeakyReLU, Input, concatenate
 import keras.backend as K
 from keras import optimizers
@@ -24,7 +24,7 @@ import utils
 
 import tensorflow as tf
 
-TRAIN = False
+TRAIN = True
 PREFIX = "models/schrider"
 SAVE_PERIOD = 2
 
@@ -75,37 +75,45 @@ def neural_network_2c(params):
     
     x = Conv2D(params.conv_2D_1_out_dim, kernel_size=ksize, 
         kernel_regularizer=keras.regularizers.l2(l2_lambda), 
-        strides=(params.stridex, params.stridey))(input1)
+        strides=(params.stridex, params.stridey),
+        data_format='channels_first', padding="same")(input1)
     x = LeakyReLU()(x)
     x = MaxPooling2D(pool_size=poolsize)(x)
     x = Dropout(params.conv_2D_1_drop)(x)
     
     x = Conv2D(params.conv_2D_2_out_dim, kernel_size=ksize, 
         kernel_regularizer=keras.regularizers.l2(l2_lambda), 
-        strides=(params.stridex, params.stridey))(x)
+        strides=(params.stridex, params.stridey), 
+        data_format='channels_first', padding="same")(x)
     x = LeakyReLU()(x)
     x = MaxPooling2D(pool_size=poolsize)(x)
     x = Dropout(params.conv_2D_2_drop)(x)
     
     x = Conv2D(params.conv_2D_3_out_dim, kernel_size=ksize, 
         kernel_regularizer=keras.regularizers.l2(l2_lambda), 
-        strides=(params.stridex, params.stridey))(x)
+        strides=(params.stridex, params.stridey), 
+        data_format='channels_first', padding="same")(x)
     x = LeakyReLU()(x)
     x = MaxPooling2D(pool_size=poolsize)(x)
     x = Dropout(params.conv_2D_3_drop)(x)
-
+    
+    """ 
     x = Conv2D(params.conv_2D_4_out_dim, kernel_size=ksize, 
         kernel_regularizer=keras.regularizers.l2(l2_lambda), 
         strides=(params.stridex, params.stridey))(x)
     x = LeakyReLU()(x)
     x = MaxPooling2D(pool_size=poolsize)(x)
     x = Dropout(params.conv_2D_4_drop)(x)  
+    """
 
     x = Flatten()(x)
+    x = Model(inputs=input1, outputs=x)
 
     y = Dense(params.dense_1_dim, kernel_initializer='normal', 
             kernel_regularizer=keras.regularizers.l2(l2_lambda))(input2)
     y = Dropout(params.dense_1_drop)(y)
+    y = Flatten()(y)
+    y = Model(inputs=input2, outputs=y)
 
     combined = concatenate([x.output, y.output])
 
