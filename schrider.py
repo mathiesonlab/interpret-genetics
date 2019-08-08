@@ -19,13 +19,13 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import pickle
 
-from msms_keras.MSMS_Generator import Schrider_Generator
+from msms_keras.MSMS_Generator import Schrider_Generator, African_Generator
 import utils
 
 import tensorflow as tf
 
 TRAIN = True
-PREFIX = "models/schrider"
+PREFIX = "models/schrider_afr"
 SAVE_PERIOD = 2
 
 class MetricHistory(keras.callbacks.Callback):
@@ -66,7 +66,7 @@ def neural_network_2c(params):
     ksize = (params.k_height, params.k_width)
     poolsize = (params.pool_height, params.pool_width)
     
-    msms_gen = Schrider_Generator(params.num_individuals, params.sequence_length, 
+    msms_gen = African_Generator(params.num_individuals, params.sequence_length, 
             params.length_to_pad_to, params.pop_min, params.pop_max)
     dims = msms_gen.dim
     
@@ -201,13 +201,15 @@ if __name__ == "__main__":
     
     else:
         model = load_model(PREFIX + '_model.hdf5', custom_objects={"rmse": rmse})
-        with open("snp_X3k.keras", 'rb') as f:
+        with open("schrider_X_test.keras", 'rb') as f:
             X = pickle.load(f)
-        with open("snp_y3k.keras", 'rb') as f:
+        with open("schrider_y_test.keras", 'rb') as f:
             y = pickle.load(f)
+        with open("schrider_distances_test.keras", 'rb') as f:
+            distances = pickle.load(f)
 
-        y_pred = model.predict(X, batch_size=32)
-        diff = y_pred - y
+        y_pred = model.predict([X, distances], batch_size=32)
+        diff = np.absolute(y_pred - y)
         mean_diff = np.mean(diff, axis=0)
         print(mean_diff)
         print(np.mean(mean_diff))

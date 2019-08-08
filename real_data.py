@@ -24,7 +24,6 @@ import pickle
 from msms_keras.MSMS_Generator import MSMS_Generator, MSprime_Generator
 import utils
 from run_example import rmse, MetricHistory
-from range_shift import range_shift
 
 import tensorflow as tf
 
@@ -32,16 +31,18 @@ import tensorflow as tf
 def main():
     
     #reader = vcf.Reader(open('/home/smathieson/public/cs68/1000g/EUR_135-136Mb.chr2.vcf', 'r'))
-    reader = vcf.Reader(filename="EUR.chr2.vcf.gz")
-    X = np.empty((2, 8000, 10), dtype=int) 
-    X_lst = []
+    reader = vcf.Reader(filename="AFR.chr2.vcf.gz")
+    X1 = np.empty((1, 8000, 10), dtype=int) 
+    X2 = np.empty((1, 8000, 10), dtype=int) 
+    X1_lst = []
+    X2_lst = []
     stat_lst = []
     matrix = []
     distances = []
     record = next(reader)
     prev = record.POS
     #reader = vcf.Reader(open('/home/smathieson/public/cs68/1000g/EUR_135-136Mb.chr2.vcf', 'r'))
-    reader = vcf.Reader(filename="EUR.chr2.vcf.gz")
+    reader = vcf.Reader(filename="AFR.chr2.vcf.gz")
     breakpoint = prev + 1000000
     count = 0
     for record in reader:
@@ -65,32 +66,34 @@ def main():
 
             matrix = np.array(matrix)
             matrix_padded = centered_padding(matrix, 8000)
-            X[0] = matrix_padded  
+            X1[0] = matrix_padded  
 
             distance_matrix = np.array(distances)
             distance_matrix = distance_matrix.reshape((len(distances), 1))
             distance_matrix = np.tile(distance_matrix, (1, 10))
             distances_padded = centered_padding(distance_matrix, 8000)
-            X[1] = distances_padded 
-            X_lst.append(X)
+            X2[0] = distances_padded 
+            X1_lst.append(X1)
+            X2_lst.append(X2)
 
             summstats = summary_stats(matrix)
             summstats = summstats.reshape((1, 8))
             stat_lst.append(summstats)
             
-            X = np.empty((2, 8000, 10), dtype=int)
+            X1 = np.empty((1, 8000, 10), dtype=int)
+            X2 = np.empty((1, 8000, 10), dtype=int)
             matrix = []
             distances = []
             breakpoint = prev + 1000000
 
-    X = np.stack(X_lst)
+    X1 = np.stack(X1_lst)
+    X2 = np.stack(X2_lst)
     summstats = np.concatenate(stat_lst)
 
-    cnn_model = load_model('models/range_shift_model.hdf5', custom_objects={"rmse": rmse, 
-                        "range_shift": range_shift})
-    fc_model = load_model('models/sumstats_model.hdf5', custom_objects={"rmse": rmse})
+    cnn_model = load_model('models/schrider_afr_model.hdf5', custom_objects={"rmse": rmse})
+    fc_model = load_model('models/sumstats_afr_model.hdf5', custom_objects={"rmse": rmse})
     
-    cnn_pred = cnn_model.predict(X, batch_size=16)
+    cnn_pred = cnn_model.predict([X1, X2], batch_size=16)
     fc_pred = fc_model.predict(summstats, batch_size=16)
     
     t1 = 1786
@@ -103,20 +106,31 @@ def main():
     plt.figure()
     plt.plot(range1, [1,1], "k-", linewidth=3)
     plt.plot(range1, [10,10], "k-", linewidth=3)
+    """
     plt.plot(range2, [1/10,1/10], "k-", linewidth=3)
     plt.plot(range2, [1,1], "k-", linewidth=3)
+    """
+    plt.plot(range2, [1,1], "k-", linewidth=3)
+    plt.plot(range2, [10,10], "k-", linewidth=3)
     plt.plot(range3, [1,1], "k-", linewidth=3)
     plt.plot(range3, [10,10], "k-", linewidth=3)
    
     cnn_mean = np.mean(cnn_pred, axis=0).reshape(3,)
     fc_mean = np.mean(fc_pred, axis=0).reshape(3,)
-
+    
+    """
     y1 = [cnn_mean[0], cnn_mean[0], cnn_mean[1]/10, cnn_mean[1]/10, 
             cnn_mean[2], cnn_mean[2]]
     
     y2 = [fc_mean[0], fc_mean[0], fc_mean[1]/10, fc_mean[1]/10, 
             fc_mean[2], fc_mean[2]]
+    """
+    y1 = [cnn_mean[0], cnn_mean[0], cnn_mean[1], cnn_mean[1], 
+            cnn_mean[2], cnn_mean[2]]
     
+    y2 = [fc_mean[0], fc_mean[0], fc_mean[1], fc_mean[1], 
+            fc_mean[2], fc_mean[2]]
+
     plt.plot(x, y1, "b-", label="cnn prediction", linewidth=.5)
     plt.plot(x, y2, "g-", label="fc prediction", linewidth=.5)
     
@@ -124,48 +138,63 @@ def main():
     plt.xlabel("Time (generations)")
     plt.ylabel("Population Scaling Factor (x10,000)")
 
-    plt.title("Real Data (CNN mean vs FC mean)")
+    plt.title("AFR Real Data (CNN mean vs FC mean)")
     plt.legend()
-    plt.savefig("mean.png")
+    plt.savefig("AFR_mean.png")
     
     plt.figure()
     for i in range(cnn_pred.shape[0]):
+        y1 = [cnn_pred[i][0], cnn_pred[i][0], cnn_pred[i][1], cnn_pred[i][1], 
+            cnn_pred[i][2], cnn_pred[i][2]]
+        """
         y1 = [cnn_pred[i][0], cnn_pred[i][0], cnn_pred[i][1]/10, cnn_pred[i][1]/10, 
             cnn_pred[i][2], cnn_pred[i][2]]
+        """
         plt.plot(x, y1, linewidth=.5)
-
 
     plt.plot(range1, [1,1], "k-", linewidth=3)
     plt.plot(range1, [10,10], "k-", linewidth=3)
+    """
     plt.plot(range2, [1/10,1/10], "k-", linewidth=3)
     plt.plot(range2, [1,1], "k-", linewidth=3)
+    """
+    plt.plot(range2, [1,1], "k-", linewidth=3)
+    plt.plot(range2, [10,10], "k-", linewidth=3)
     plt.plot(range3, [1,1], "k-", linewidth=3)
     plt.plot(range3, [10,10], "k-", linewidth=3)
- 
+  
     plt.xlabel("Time (generations)")
     plt.ylabel("Population Scaling Factor (x10,000)")
 
-    plt.title("Real Data (CNN)")
-    plt.savefig("cnn.png")
+    plt.title("AFR Real Data (CNN)")
+    plt.savefig("AFR_cnn.png")
  
     plt.figure()
     for i in range(cnn_pred.shape[0]):
+        y1 = [fc_pred[i][0], fc_pred[i][0], fc_pred[i][1], fc_pred[i][1], 
+            fc_pred[i][2], fc_pred[i][2]]
+        """
         y1 = [fc_pred[i][0], fc_pred[i][0], fc_pred[i][1]/10, fc_pred[i][1]/10, 
             fc_pred[i][2], fc_pred[i][2]]
+        """
         plt.plot(x, y1, linewidth=.5)
 
     plt.plot(range1, [1,1], "k-", linewidth=3)
     plt.plot(range1, [10,10], "k-", linewidth=3)
+    """
     plt.plot(range2, [1/10,1/10], "k-", linewidth=3)
     plt.plot(range2, [1,1], "k-", linewidth=3)
+    """
+    plt.plot(range2, [1,1], "k-", linewidth=3)
+    plt.plot(range2, [10,10], "k-", linewidth=3)
     plt.plot(range3, [1,1], "k-", linewidth=3)
     plt.plot(range3, [10,10], "k-", linewidth=3)
  
     plt.xlabel("Time (generations)")
     plt.ylabel("Population Scaling Factor (x10,000)")
 
-    plt.title("Real Data (FC)")
-    plt.savefig("fc.png")
+    plt.title("AFR Real Data (FC)")
+    plt.savefig("AFR_fc.png")
 
 def centered_padding(matrix, length_to_extend_to):
     

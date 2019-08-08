@@ -18,13 +18,13 @@ import json
 from sklearn.model_selection import train_test_split
 import pickle
 
-from msms_keras.MSMS_Generator import MSMS_Generator, MSprime_Generator
+from msms_keras.MSMS_Generator import MSMS_Generator, MSprime_Generator, African_Generator
 import utils
 
 import tensorflow as tf
 
-TRAIN = False
-PREFIX = "models/sumstats_rangeshift"
+TRAIN = True
+PREFIX = "models/sumstats_afr"
 SAVE_PERIOD = 2
 
 class MetricHistory(keras.callbacks.Callback):
@@ -72,7 +72,7 @@ def neural_network_fc(params):
     CORES = params.cores
     l2_lambda = params.l2_lambda
     
-    msms_gen = MSprime_Generator(params.num_individuals, params.sequence_length, 
+    msms_gen = African_Generator(params.num_individuals, params.sequence_length, 
             params.length_to_pad_to, params.pop_min, params.pop_max, yield_summary_stats=1)
     dims = msms_gen.dim
 
@@ -105,7 +105,7 @@ def neural_network_fc(params):
 
     metric = MetricHistory()
     
-    model.compile(loss=range_shift,
+    model.compile(loss='mean_squared_error',
                       optimizer=keras.optimizers.Adam(),
                       metrics=[rmse, 'mean_absolute_error'])
 
